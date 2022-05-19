@@ -1,0 +1,20 @@
+# Build backend
+FROM golang:1.18-alpine AS backend-build
+
+WORKDIR /backend
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -ldflags="-s -w" -o . ./cmd/...
+
+# Deploy backend
+FROM alpine:latest
+
+COPY --from=backend-build /backend/api-service /api-service
+
+EXPOSE 3000
+
+ENTRYPOINT ["./api-service"]

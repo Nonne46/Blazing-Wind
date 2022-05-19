@@ -1,0 +1,80 @@
+version: "3"
+services:
+  postgres:
+    image: postgres:alpine
+    restart: always
+    environment:
+      POSTGRES_USER: '${DB_USERNAME}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD}'
+      POSTGRES_DB: '${DB_DATABASE}'
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+  elasticsearch:
+    build:
+      context: ./elasticsearch
+      dockerfile: ./Dockerfile
+    image: blazing-wind-elasticsearch:latest
+    restart: always
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    environment:
+      ES_JAVA_OPTS: "-Xmx512m -Xms512m"
+      ELASTIC_PASSWORD: elasticpass
+      KIBANA_SYSTEM_PASSWORD: kibanapass
+      XPACK_SECURITY_ENABLED: "true"
+
+  logstash:
+    build:
+      context: ./logstash
+      dockerfile: ./Dockerfile
+    image: blazing-wind-logstash:latest
+    restart: always
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    environment:
+      LS_JAVA_OPTS: "-Xmx1G -Xms1G"
+    env_file:
+      - .env
+    depends_on:
+      - elasticsearch
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/Dockerfile-backend
+    image: blazing-wind-backend:latest
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    environment:
+      POSTGRES_URL: postgres://${DB_USERNAME}:${DB_PASSWORD}@postgres/?sslmode=disable&TimeZone=UTC
+      ELASTIC_URL: http://elastic:elasticpass@elasticsearch:9200
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile-frontend
+    image: blazing-wind-frontend:latest
+    restart: unless-stopped
+    ports:
+      - 80:80
+    environment:
+      BACKEND_URL: backend:3000
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - backend
+
+volumes:
+  pg-data:
+  elastic_data:

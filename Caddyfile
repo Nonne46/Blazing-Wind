@@ -1,0 +1,16 @@
+{
+	auto_https off
+	servers :80 {
+		protocol {
+			experimental_http3
+		}
+	}
+}
+
+:80 {
+	root * /frontend
+	encode zstd gzip
+	file_server
+
+	reverse_proxy /search/* {$BACKEND_URL}
+}

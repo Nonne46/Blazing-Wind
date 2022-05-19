@@ -1,0 +1,24 @@
+# Build frontend
+
+FROM node:lts-alpine AS build
+
+WORKDIR /frontend
+
+COPY package\*.json ./
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+# Deploy frontend
+
+FROM caddy:alpine
+
+RUN mkdir /frontend
+
+COPY --from=build /frontend/dist /frontend
+
+EXPOSE 80
+
+ENTRYPOINT ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]
